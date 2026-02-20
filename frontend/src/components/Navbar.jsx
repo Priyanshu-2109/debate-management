@@ -6,14 +6,7 @@ import {
   SignInButton,
 } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
-import {
-  MessageSquare,
-  LayoutDashboard,
-  List,
-  User,
-  Sun,
-  Moon,
-} from "lucide-react";
+import { LayoutDashboard, List, User, Sun, Moon } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 
 export default function Navbar() {
@@ -24,7 +17,7 @@ export default function Navbar() {
   if (location.pathname.startsWith("/admin")) return null;
 
   const navItems = [
-    { to: "/", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { to: "/debates", label: "Debates", icon: List },
     { to: "/profile", label: "Profile", icon: User },
   ];
@@ -32,8 +25,15 @@ export default function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2 font-bold text-xl">
-          <MessageSquare className="h-6 w-6 text-primary" />
+        <Link
+          to="/dashboard"
+          className="flex items-center gap-2 font-bold text-xl"
+        >
+          <img
+            src="/debatehub_logo.png"
+            alt="DebateHub"
+            className="h-7 w-7 invert dark:invert-0"
+          />
           <span className="bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent">
             DebateHub
           </span>

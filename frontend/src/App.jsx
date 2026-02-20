@@ -13,6 +13,9 @@ import { Toaster } from "@/components/ui/toaster";
 import UserLayout from "@/components/UserLayout";
 import AdminLayout from "@/components/AdminLayout";
 
+// Landing
+import LandingPage from "@/pages/LandingPage";
+
 // User pages
 import Dashboard from "@/pages/user/Dashboard";
 import DebateList from "@/pages/user/DebateList";
@@ -53,11 +56,13 @@ function ClerkUserLayout() {
 
 export default function App() {
   return (
-    // AdminAuthProvider at the top level — no network calls, just context
     <ThemeProvider>
       <AdminAuthProvider>
         <BrowserRouter>
           <Routes>
+            {/* ── Public landing page — no auth, no Clerk ── */}
+            <Route path="/" element={<LandingPage />} />
+
             {/* ── Admin routes — JWT auth, Clerk never initialises here ── */}
             <Route path="/admin" element={<AdminLogin />} />
             <Route element={<AdminLayout />}>
@@ -70,7 +75,7 @@ export default function App() {
             {/* ── User routes — Clerk loads only for these pages ── */}
             <Route element={<ClerkUserLayout />}>
               <Route
-                path="/"
+                path="/dashboard"
                 element={
                   <ProtectedRoute>
                     <Dashboard />

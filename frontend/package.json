@@ -20,12 +20,14 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.447.0",
+    "motion": "^12.34.2",
     "react": "^18.3.1",
     "react-day-picker": "^9.13.2",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.27.0",
     "tailwind-merge": "^2.5.3",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "three": "^0.183.0"
   },
   "devDependencies": {
     "@types/react": "^18.3.11",
