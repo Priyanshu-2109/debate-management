@@ -17,6 +17,15 @@ import {
   CheckCircle,
 } from "lucide-react";
 
+/** Format "HH:MM" → "h:mm AM/PM IST" */
+function formatTimeIST(time24) {
+  if (!time24) return "";
+  const [h, m] = time24.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${displayH}:${String(m).padStart(2, "0")} ${period} IST`;
+}
+
 export default function DebateDetails() {
   const { id } = useParams();
   const { user, isSignedIn } = useUser();
@@ -31,7 +40,7 @@ export default function DebateDetails() {
       const debRes = await debateApi.getById(id);
       if (debRes.data.success) setDebate(debRes.data.debate);
 
-      if (user) {
+      if (user?.id) {
         const profRes = await userApi.getProfile(user.id);
         if (profRes.data.success) setProfile(profRes.data.user);
       }
@@ -44,7 +53,11 @@ export default function DebateDetails() {
 
   useEffect(() => {
     fetchData();
-  }, [id, user]);
+    // Poll every 15 seconds so auto-reveal updates show up in real time
+    const interval = setInterval(fetchData, 15000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, user?.id]);
 
   const hasJoined = profile?.joinedDebates?.some((d) => d._id === id);
 
@@ -186,8 +199,8 @@ export default function DebateDetails() {
             <div className="flex items-center gap-3 p-4 rounded-lg bg-secondary/30">
               <Clock className="h-5 w-5 text-primary" />
               <div>
-                <p className="text-xs text-muted-foreground">Time</p>
-                <p className="font-medium">{debate.time}</p>
+                <p className="text-xs text-muted-foreground">Time (IST)</p>
+                <p className="font-medium">{formatTimeIST(debate.time)}</p>
               </div>
             </div>
             <div className="flex items-center gap-3 p-4 rounded-lg bg-secondary/30">
@@ -225,38 +238,40 @@ export default function DebateDetails() {
           </div>
 
           {/* Join / Leave buttons */}
-          {debate.status !== "cancelled" &&
-            debate.status !== "completed" &&
-            !hasJoined && (
-              <Button
-                size="lg"
-                className="w-full"
-                onClick={handleJoin}
-                disabled={joining}
-              >
-                {joining ? "Joining..." : "Join This Debate"}
-              </Button>
-            )}
-          {hasJoined &&
-            debate.status !== "completed" &&
-            debate.status !== "cancelled" && (
-              <div className="space-y-3">
-                <div className="text-center py-3 rounded-lg bg-emerald-500/10 text-emerald-400 font-medium flex items-center justify-center gap-2">
-                  <CheckCircle className="h-5 w-5" />
-                  You have joined this debate
-                </div>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="w-full text-destructive hover:text-destructive"
-                  onClick={handleLeave}
-                  disabled={leaving}
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  {leaving ? "Leaving..." : "Leave Debate"}
-                </Button>
+          {debate.status === "upcoming" && !hasJoined && (
+            <Button
+              size="lg"
+              className="w-full"
+              onClick={handleJoin}
+              disabled={joining}
+            >
+              {joining ? "Joining..." : "Join This Debate"}
+            </Button>
+          )}
+          {hasJoined && debate.status === "upcoming" && (
+            <div className="space-y-3">
+              <div className="text-center py-3 rounded-lg bg-emerald-500/10 text-emerald-400 font-medium flex items-center justify-center gap-2">
+                <CheckCircle className="h-5 w-5" />
+                You have joined this debate
               </div>
-            )}
+              <Button
+                variant="outline"
+                size="lg"
+                className="w-full text-destructive hover:text-destructive"
+                onClick={handleLeave}
+                disabled={leaving}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                {leaving ? "Leaving..." : "Leave Debate"}
+              </Button>
+            </div>
+          )}
+          {hasJoined && debate.status === "active" && (
+            <div className="text-center py-3 rounded-lg bg-emerald-500/10 text-emerald-400 font-medium flex items-center justify-center gap-2">
+              <CheckCircle className="h-5 w-5" />
+              You are participating in this debate
+            </div>
+          )}
           {hasJoined &&
             (debate.status === "completed" ||
               debate.status === "cancelled") && (

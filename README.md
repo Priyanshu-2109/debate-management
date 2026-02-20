@@ -204,77 +204,108 @@ Frontend runs at: `http://localhost:5173`
 
 ## ☁️ Deploying to Vercel
 
-The project is pre-configured for a **single Vercel deployment** — the frontend is served as static files and the backend runs as a serverless function, both under the same domain.
+The repository is wired for a **single Vercel deployment** — the Vite frontend is served as static files and the Express backend runs as a serverless function, both on the same domain with no extra configuration.
 
-### How it works
+### Project layout on Vercel
 
-| Path            | Handler                                      |
-| --------------- | -------------------------------------------- |
-| `/api/*`        | `api/index.js` → Express serverless function |
-| Everything else | `frontend/dist` → Vite static build          |
+```
+Debate/
+├── backend/
+│   ├── api/
+│   │   └── index.js   ← serverless entry point (re-exports Express app)
+│   └── server.js
+├── frontend/
+│   └── dist/          ← built by Vite, served as static files
+└── vercel.json        ← tells Vercel how to build and route
+```
 
-### Steps
+| URL pattern     | Handled by                           |
+| --------------- | ------------------------------------ |
+| `/api/*`        | `backend/api/index.js` → Express app |
+| everything else | `frontend/dist/` → Vite static build |
 
-#### 1. Push to GitHub
+---
 
-Make sure your repository is pushed to GitHub (or GitLab/Bitbucket).
+### Step-by-step deployment
+
+#### 1. Push your repo to GitHub
+
+```bash
+git add .
+git commit -m "ready for vercel"
+git push
+```
 
 #### 2. Import on Vercel
 
-Go to [vercel.com/new](https://vercel.com/new), import the repo, and use the **root** as the project root (leave "Root Directory" blank — the `vercel.json` handles everything).
+1. Go to [vercel.com/new](https://vercel.com/new)
+2. Click **"Add New Project"** → import your GitHub repo
+3. Leave **Root Directory** blank (the `vercel.json` at repo root controls everything)
+4. Click **Deploy** — the first deploy will fail because env vars aren't set yet; that's fine
 
 #### 3. Add environment variables
 
-In **Vercel → Project → Settings → Environment Variables**, add:
+In **Vercel → your project → Settings → Environment Variables**, add every variable below and set the **Environment** to `Production` (and `Preview` if you want branch deploys to work too).
 
-**Backend variables** (used by the serverless function):
+**Backend variables**
 
-| Variable               | Value                                                         |
-| ---------------------- | ------------------------------------------------------------- |
-| `MONGODB_URI`          | Your MongoDB Atlas connection string                          |
-| `JWT_SECRET`           | A strong random secret                                        |
-| `CLERK_SECRET_KEY`     | From Clerk dashboard                                          |
-| `CLERK_WEBHOOK_SECRET` | From Clerk webhook settings                                   |
-| `CLIENT_URL`           | Your Vercel frontend URL (e.g. `https://your-app.vercel.app`) |
-| `SMTP_HOST`            | e.g. `smtp.gmail.com`                                         |
-| `SMTP_PORT`            | `587`                                                         |
-| `SMTP_USER`            | Your email address                                            |
-| `SMTP_PASS`            | Your email app password                                       |
-| `EMAIL_FROM`           | e.g. `noreply@your-app.com`                                   |
+| Variable               | Example value                                        |
+| ---------------------- | ---------------------------------------------------- |
+| `MONGODB_URI`          | `mongodb+srv://user:pass@cluster.mongodb.net/debate` |
+| `JWT_SECRET`           | any long random string                               |
+| `CLERK_SECRET_KEY`     | `sk_live_…` from Clerk dashboard                     |
+| `CLERK_WEBHOOK_SECRET` | `whsec_…` from Clerk → Webhooks                      |
+| `CLIENT_URL`           | `https://your-app.vercel.app`                        |
+| `SMTP_HOST`            | `smtp.gmail.com`                                     |
+| `SMTP_PORT`            | `587`                                                |
+| `SMTP_USER`            | your Gmail address                                   |
+| `SMTP_PASS`            | your Gmail App Password                              |
+| `EMAIL_FROM`           | `"DebateHub <noreply@your-app.com>"`                 |
 
-**Frontend variables** (must be prefixed with `VITE_`):
+**Frontend variables** _(must start with `VITE_`)_
 
-| Variable                     | Value                                    |
-| ---------------------------- | ---------------------------------------- |
-| `VITE_CLERK_PUBLISHABLE_KEY` | From Clerk dashboard (starts with `pk_`) |
+| Variable                     | Example value                    |
+| ---------------------------- | -------------------------------- |
+| `VITE_CLERK_PUBLISHABLE_KEY` | `pk_live_…` from Clerk dashboard |
 
-> `VITE_API_URL` does **not** need to be set — it defaults to `/api`, which correctly hits the serverless function on the same domain.
+> `VITE_API_URL` does **not** need to be set. It defaults to `/api`, which hits the serverless function on the same domain automatically.
 
-#### 4. Deploy
+#### 4. Redeploy
 
-Click **Deploy**. Vercel will:
+Go to **Deployments → the latest deployment → Redeploy** (or just push a new commit). Vercel will:
 
-1. Install dependencies for both `backend/` and `frontend/`
-2. Build the frontend (`vite build`)
-3. Serve static files from `frontend/dist/`
-4. Handle all `/api/*` requests via the Express serverless function
+1. Run `npm install` in `backend/` and `frontend/`
+2. Build the frontend with `vite build`
+3. Serve `frontend/dist/` as static files
+4. Route all `/api/*` traffic to the Express serverless function
 
-#### 5. Update Clerk webhook URL
+#### 5. Seed the admin account (first time only)
 
-After deploy, update your Clerk webhook endpoint to:
-
-```
-https://your-app.vercel.app/api/webhooks/clerk
-```
-
-#### 6. Seed the admin (first deploy only)
-
-Run the seed script locally against your production MongoDB URI:
+Run the seed script **locally**, pointing at your production MongoDB:
 
 ```bash
-cd backend
-MONGODB_URI=mongodb+srv://... node scripts/seedAdmin.js
+# Windows
+set MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/debate && cd backend && node scripts/seedAdmin.js
+
+# macOS / Linux
+MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/debate node backend/scripts/seedAdmin.js
 ```
+
+Default credentials created:
+
+| Field    | Value              |
+| -------- | ------------------ |
+| Email    | `admin@debate.com` |
+| Password | `admin123456`      |
+
+> Change the password immediately after first login.
+
+#### 6. Update Clerk settings
+
+After your live URL is known, update two things in the [Clerk dashboard](https://dashboard.clerk.com):
+
+1. **Allowed origins** → add `https://your-app.vercel.app`
+2. **Webhook endpoint** → set to `https://your-app.vercel.app/api/webhooks/clerk`
 
 ---
 

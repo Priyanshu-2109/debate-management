@@ -1,12 +1,29 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useUser } from "@clerk/clerk-react";
 import { Link } from "react-router-dom";
 import { debateApi, userApi } from "@/services/api";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Calendar, Clock, MapPin, Users, Search, Lock } from "lucide-react";
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  Users,
+  Search,
+  Lock,
+  History,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
+
+/** Format "HH:MM" → "h:mm AM/PM IST" */
+function formatTimeIST(time24) {
+  if (!time24) return "";
+  const [h, m] = time24.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${displayH}:${String(m).padStart(2, "0")} ${period} IST`;
+}
 
 export default function DebateList() {
   const { user } = useUser();
@@ -14,6 +31,7 @@ export default function DebateList() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [tab, setTab] = useState("upcoming"); // "upcoming" | "history"
 
   useEffect(() => {
     Promise.all([
@@ -45,7 +63,24 @@ export default function DebateList() {
     return { label: "Upcoming", variant: "default" };
   };
 
-  const filtered = debates.filter((d) => {
+  const upcomingDebates = useMemo(
+    () =>
+      debates.filter(
+        (d) => d.status !== "completed" && d.status !== "cancelled",
+      ),
+    [debates],
+  );
+  const historyDebates = useMemo(
+    () =>
+      debates.filter(
+        (d) => d.status === "completed" || d.status === "cancelled",
+      ),
+    [debates],
+  );
+
+  const activeList = tab === "upcoming" ? upcomingDebates : historyDebates;
+
+  const filtered = activeList.filter((d) => {
     const q = search.toLowerCase();
     return (
       d.location.toLowerCase().includes(q) ||
@@ -72,7 +107,7 @@ export default function DebateList() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold">All Debates</h1>
+        <h1 className="text-3xl font-bold">Debates</h1>
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
           <Input
@@ -82,6 +117,28 @@ export default function DebateList() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2">
+        <Button
+          variant={tab === "upcoming" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setTab("upcoming")}
+          className="gap-2"
+        >
+          <Calendar className="h-4 w-4" />
+          Upcoming & Active ({upcomingDebates.length})
+        </Button>
+        <Button
+          variant={tab === "history" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setTab("history")}
+          className="gap-2"
+        >
+          <History className="h-4 w-4" />
+          History ({historyDebates.length})
+        </Button>
       </div>
 
       {filtered.length === 0 ? (
@@ -120,7 +177,7 @@ export default function DebateList() {
                           </div>
                           <div className="flex items-center gap-2">
                             <Clock className="h-4 w-4" />
-                            {debate.time}
+                            {formatTimeIST(debate.time)}
                           </div>
                           <div className="flex items-center gap-2">
                             <MapPin className="h-4 w-4" />

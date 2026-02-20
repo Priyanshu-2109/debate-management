@@ -6,11 +6,12 @@ const {
   debateJoinedTemplate,
   topicRevealedTemplate,
 } = require("../utils/emailTemplates");
+const { processDebateAutomation } = require("../utils/debateAutomation");
 
 // POST /api/debates  (Admin)
 exports.createDebate = async (req, res) => {
   try {
-    const { topicId, date, time, location } = req.body;
+    const { date, time, location } = req.body;
 
     if (!date || !time || !location) {
       return res.status(400).json({
@@ -19,8 +20,17 @@ exports.createDebate = async (req, res) => {
       });
     }
 
+    // Block creation when there are no unused topics left
+    const unusedCount = await Topic.countDocuments({ isUsed: false });
+    if (unusedCount === 0) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "No unused topics available. Please add more topics before creating a debate.",
+      });
+    }
+
     const debate = await Debate.create({
-      topicId: topicId || null,
       date,
       time,
       location,
@@ -35,6 +45,9 @@ exports.createDebate = async (req, res) => {
 // GET /api/debates
 exports.getDebates = async (req, res) => {
   try {
+    // Run automation check (auto-reveal & auto-complete)
+    await processDebateAutomation();
+
     const debates = await Debate.find()
       .populate("topicId")
       .populate("participants", "name email")
@@ -49,6 +62,9 @@ exports.getDebates = async (req, res) => {
 // GET /api/debates/:id
 exports.getDebate = async (req, res) => {
   try {
+    // Run automation check (auto-reveal & auto-complete)
+    await processDebateAutomation();
+
     const debate = await Debate.findById(req.params.id)
       .populate("topicId")
       .populate("participants", "name email");
@@ -84,6 +100,15 @@ exports.joinDebate = async (req, res) => {
         .json({ success: false, message: "This debate has been cancelled" });
     }
 
+    if (debate.status === "active" || debate.status === "completed") {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: "Cannot join an active or completed debate",
+        });
+    }
+
     if (debate.participants.includes(user._id)) {
       return res
         .status(400)
@@ -99,7 +124,7 @@ exports.joinDebate = async (req, res) => {
     // Send email notification
     sendEmail(
       user.email,
-      "Debate Joined Successfully",
+      "🎯 You're In! Debate Joined Successfully",
       debateJoinedTemplate({
         userName: user.name,
         date: debate.date,
@@ -134,12 +159,10 @@ exports.leaveDebate = async (req, res) => {
     }
 
     if (debate.status === "active" || debate.status === "completed") {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "Cannot leave an active or completed debate",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "Cannot leave an active or completed debate",
+      });
     }
 
     debate.participants = debate.participants.filter(
@@ -181,12 +204,10 @@ exports.revealTopic = async (req, res) => {
     // Auto-pick a random unused topic
     const unusedTopics = await Topic.find({ isUsed: false });
     if (unusedTopics.length === 0) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: "No unused topics available. Add more topics first.",
-        });
+      return res.status(400).json({
+        success: false,
+        message: "No unused topics available. Add more topics first.",
+      });
     }
 
     const randomIndex = Math.floor(Math.random() * unusedTopics.length);
@@ -208,7 +229,7 @@ exports.revealTopic = async (req, res) => {
     const emailPromises = debate.participants.map((participant) =>
       sendEmail(
         participant.email,
-        "Debate Topic Revealed",
+        "🎤 Topic Revealed! Time to Prepare",
         topicRevealedTemplate({
           userName: participant.name,
           topicTitle: selectedTopic.title,

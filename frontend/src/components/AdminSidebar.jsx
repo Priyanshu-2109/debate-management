@@ -11,13 +11,17 @@ import {
   ChevronLeft,
   Menu,
   X,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { useState } from "react";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function AdminSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { admin, logout } = useAdminAuth();
+  const { theme, toggleTheme } = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
@@ -65,6 +69,23 @@ export default function AdminSidebar() {
       </nav>
 
       <div className="p-4 border-t space-y-2">
+        <Button
+          variant="ghost"
+          className="w-full justify-start gap-3 text-muted-foreground"
+          onClick={toggleTheme}
+        >
+          {theme === "dark" ? (
+            <>
+              <Sun className="h-4 w-4" />
+              Light Mode
+            </>
+          ) : (
+            <>
+              <Moon className="h-4 w-4" />
+              Dark Mode
+            </>
+          )}
+        </Button>
         <Link to="/" onClick={() => setMobileOpen(false)}>
           <Button
             variant="ghost"
@@ -116,7 +137,7 @@ export default function AdminSidebar() {
       </aside>
 
       {/* Desktop sidebar */}
-      <aside className="hidden md:flex w-64 min-h-screen border-r bg-card flex-col">
+      <aside className="hidden md:flex w-64 h-screen border-r bg-card flex-col sticky top-0">
         {sidebarContent}
       </aside>
     </>

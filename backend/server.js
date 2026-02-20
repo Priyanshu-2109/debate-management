@@ -29,6 +29,10 @@ app.use("/api/topics", topicRoutes);
 app.use("/api/debates", debateRoutes);
 app.use("/api/users", userRoutes);
 
+// Cron endpoint — also usable locally via GET /api/cron
+const cronHandler = require("./api/cron");
+app.get("/api/cron", cronHandler);
+
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({ status: "ok", timestamp: new Date().toISOString() });

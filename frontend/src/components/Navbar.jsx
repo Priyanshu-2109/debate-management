@@ -6,10 +6,19 @@ import {
   SignInButton,
 } from "@clerk/clerk-react";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, LayoutDashboard, List, User } from "lucide-react";
+import {
+  MessageSquare,
+  LayoutDashboard,
+  List,
+  User,
+  Sun,
+  Moon,
+} from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 
 export default function Navbar() {
   const location = useLocation();
+  const { theme, toggleTheme } = useTheme();
 
   // Don't show on admin routes
   if (location.pathname.startsWith("/admin")) return null;
@@ -48,6 +57,20 @@ export default function Navbar() {
         </nav>
 
         <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            title={
+              theme === "dark" ? "Switch to light mode" : "Switch to dark mode"
+            }
+          >
+            {theme === "dark" ? (
+              <Sun className="h-5 w-5" />
+            ) : (
+              <Moon className="h-5 w-5" />
+            )}
+          </Button>
           <SignedIn>
             <UserButton afterSignOutUrl="/" />
           </SignedIn>

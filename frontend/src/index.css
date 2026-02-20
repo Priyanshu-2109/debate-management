@@ -3,7 +3,9 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
+  /* ── Dark theme (default) ── */
+  :root,
+  .dark {
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
     --card: 222.2 84% 4.9%;
@@ -25,6 +27,30 @@
     --ring: 263.4 70% 50.4%;
     --radius: 0.75rem;
   }
+
+  /* ── Light theme ── */
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 263.4 70% 50.4%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 263.4 70% 50.4%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 263.4 70% 50.4%;
+    --radius: 0.75rem;
+  }
 }
 
 @layer base {
@@ -39,17 +65,32 @@
   }
 }
 
-/* Custom scrollbar */
-::-webkit-scrollbar {
+/* Custom scrollbar — dark */
+.dark ::-webkit-scrollbar {
   width: 8px;
 }
-::-webkit-scrollbar-track {
+.dark ::-webkit-scrollbar-track {
   background: hsl(222.2, 84%, 4.9%);
 }
-::-webkit-scrollbar-thumb {
+.dark ::-webkit-scrollbar-thumb {
   background: hsl(217.2, 32.6%, 17.5%);
   border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover {
+.dark ::-webkit-scrollbar-thumb:hover {
   background: hsl(215, 20.2%, 30%);
+}
+
+/* Custom scrollbar — light */
+.light ::-webkit-scrollbar {
+  width: 8px;
+}
+.light ::-webkit-scrollbar-track {
+  background: hsl(0, 0%, 96%);
+}
+.light ::-webkit-scrollbar-thumb {
+  background: hsl(214.3, 31.8%, 80%);
+  border-radius: 4px;
+}
+.light ::-webkit-scrollbar-thumb:hover {
+  background: hsl(215, 20.2%, 65%);
 }

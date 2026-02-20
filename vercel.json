@@ -2,5 +2,14 @@
   "version": 2,
   "buildCommand": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend",
   "outputDirectory": "frontend/dist",
-  "rewrites": [{ "source": "/api/:path*", "destination": "/api/index.js" }]
+  "rewrites": [
+    { "source": "/api/cron", "destination": "/backend/api/cron.js" },
+    { "source": "/api/:path*", "destination": "/backend/api/index.js" }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron",
+      "schedule": "* * * * *"
+    }
+  ]
 }

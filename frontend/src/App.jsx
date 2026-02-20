@@ -6,6 +6,7 @@ import {
   RedirectToSignIn,
 } from "@clerk/clerk-react";
 import { AdminAuthProvider } from "@/hooks/useAdminAuth";
+import { ThemeProvider } from "@/hooks/useTheme";
 import { Toaster } from "@/components/ui/toaster";
 
 // Layouts
@@ -38,14 +39,36 @@ function ProtectedRoute({ children }) {
   );
 }
 
-export default function App() {
+/**
+ * UserLayout wrapped in ClerkProvider so Clerk only initialises
+ * when the user navigates to a user-facing route.
+ */
+function ClerkUserLayout() {
   return (
     <ClerkProvider publishableKey={clerkPubKey}>
+      <UserLayout />
+    </ClerkProvider>
+  );
+}
+
+export default function App() {
+  return (
+    // AdminAuthProvider at the top level — no network calls, just context
+    <ThemeProvider>
       <AdminAuthProvider>
         <BrowserRouter>
           <Routes>
-            {/* User routes */}
-            <Route element={<UserLayout />}>
+            {/* ── Admin routes — JWT auth, Clerk never initialises here ── */}
+            <Route path="/admin" element={<AdminLogin />} />
+            <Route element={<AdminLayout />}>
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/topics" element={<ManageTopics />} />
+              <Route path="/admin/debates" element={<ManageDebates />} />
+              <Route path="/admin/users" element={<ManageUsers />} />
+            </Route>
+
+            {/* ── User routes — Clerk loads only for these pages ── */}
+            <Route element={<ClerkUserLayout />}>
               <Route
                 path="/"
                 element={
@@ -79,19 +102,10 @@ export default function App() {
                 }
               />
             </Route>
-
-            {/* Admin routes */}
-            <Route path="/admin" element={<AdminLogin />} />
-            <Route element={<AdminLayout />}>
-              <Route path="/admin/dashboard" element={<AdminDashboard />} />
-              <Route path="/admin/topics" element={<ManageTopics />} />
-              <Route path="/admin/debates" element={<ManageDebates />} />
-              <Route path="/admin/users" element={<ManageUsers />} />
-            </Route>
           </Routes>
           <Toaster />
         </BrowserRouter>
       </AdminAuthProvider>
-    </ClerkProvider>
+    </ThemeProvider>
   );
 }

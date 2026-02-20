@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { debateApi, topicApi } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,7 @@ import {
   MapPin,
   Clock,
   Shuffle,
+  AlertTriangle,
 } from "lucide-react";
 
 // Generate date options for the next N days
@@ -55,45 +56,64 @@ function generateDateOptions(days = 30) {
   return options;
 }
 
-// All 48 thirty-minute slots across the day
-function buildAllTimeOptions() {
-  const options = [];
-  for (let m = 0; m < 24 * 60; m += 30) {
-    const hours = Math.floor(m / 60);
-    const mins = m % 60;
-    const value = `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}`;
-    const ampm = hours >= 12 ? "PM" : "AM";
-    const displayHour = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    options.push({
-      value,
-      label: `${displayHour}:${String(mins).padStart(2, "0")} ${ampm}`,
-      minutes: m,
-    });
+const DATE_OPTIONS = generateDateOptions(30);
+
+// ── Custom IST Time Picker helpers ──
+function buildHourOptions() {
+  const opts = [];
+  for (let h = 1; h <= 12; h++) {
+    opts.push({ value: String(h), label: String(h) });
   }
-  return options;
+  return opts;
 }
 
-const DATE_OPTIONS = generateDateOptions(30);
-const ALL_TIME_OPTIONS = buildAllTimeOptions();
+function buildMinuteOptions() {
+  const opts = [];
+  for (let m = 0; m < 60; m++) {
+    opts.push({
+      value: String(m).padStart(2, "0"),
+      label: String(m).padStart(2, "0"),
+    });
+  }
+  return opts;
+}
+
+const HOUR_OPTIONS = buildHourOptions();
+const MINUTE_OPTIONS = buildMinuteOptions();
+
+/** Convert 12-hour parts → "HH:MM" 24-hour string */
+function to24h(hour, minute, period) {
+  let h = parseInt(hour, 10);
+  if (period === "AM") {
+    if (h === 12) h = 0;
+  } else {
+    if (h !== 12) h += 12;
+  }
+  return `${String(h).padStart(2, "0")}:${minute}`;
+}
+
+/** Format "HH:MM" → "h:mm AM/PM IST" */
+function formatTimeIST(time24) {
+  if (!time24) return "";
+  const [h, m] = time24.split(":").map(Number);
+  const period = h >= 12 ? "PM" : "AM";
+  const displayH = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return `${displayH}:${String(m).padStart(2, "0")} ${period} IST`;
+}
 
 export default function ManageDebates() {
   const [debates, setDebates] = useState([]);
   const [topics, setTopics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ date: "", time: "", location: "" });
+  const [form, setForm] = useState({
+    date: "",
+    hour: "",
+    minute: "",
+    period: "AM",
+    location: "",
+  });
   const [submitting, setSubmitting] = useState(false);
-
-  // For today: only current time onward; for future dates: all slots
-  const timeOptions = useMemo(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
-    if (form.date !== todayStr) return ALL_TIME_OPTIONS;
-    const now = new Date();
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    // Round up to the next 30-min boundary so the current slot is included
-    const cutoff = Math.ceil(nowMinutes / 30) * 30;
-    return ALL_TIME_OPTIONS.filter((opt) => opt.minutes >= cutoff);
-  }, [form.date]);
 
   const fetchData = async () => {
     try {
@@ -112,16 +132,36 @@ export default function ManageDebates() {
 
   useEffect(() => {
     fetchData();
+    // Poll every 30 seconds so auto-reveal / auto-complete updates show up
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
   }, []);
+
+  const unusedTopicCount = topics.filter((t) => !t.isUsed).length;
+  const canCreate = unusedTopicCount > 0;
 
   const handleCreate = async (e) => {
     e.preventDefault();
+    if (!canCreate) return;
+
+    const time24 = to24h(form.hour, form.minute, form.period);
+
     setSubmitting(true);
     try {
-      const { data } = await debateApi.create(form);
+      const { data } = await debateApi.create({
+        date: form.date,
+        time: time24,
+        location: form.location,
+      });
       if (data.success) {
         fetchData();
-        setForm({ date: "", time: "", location: "" });
+        setForm({
+          date: "",
+          hour: "",
+          minute: "",
+          period: "AM",
+          location: "",
+        });
         setOpen(false);
         toast({ title: "Debate created", variant: "success" });
       }
@@ -133,28 +173,6 @@ export default function ManageDebates() {
       });
     } finally {
       setSubmitting(false);
-    }
-  };
-
-  const handleReveal = async (id) => {
-    try {
-      const { data } = await debateApi.reveal(id);
-      if (data.success) {
-        fetchData();
-        toast({
-          title: "Topic revealed!",
-          description:
-            data.message ||
-            "A random topic was assigned and participants notified.",
-          variant: "success",
-        });
-      }
-    } catch (err) {
-      toast({
-        title: "Failed to reveal",
-        description: err.response?.data?.message,
-        variant: "destructive",
-      });
     }
   };
 
@@ -189,7 +207,7 @@ export default function ManageDebates() {
     return <Badge variant={map[status] || "default"}>{status}</Badge>;
   };
 
-  const unusedTopicCount = topics.filter((t) => !t.isUsed).length;
+  const timeComplete = form.hour && form.minute && form.period;
 
   return (
     <div>
@@ -200,113 +218,147 @@ export default function ManageDebates() {
             <Shuffle className="h-3 w-3 mr-1" />
             {unusedTopicCount} unused topic{unusedTopicCount !== 1 ? "s" : ""}
           </Badge>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" /> New Debate
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>Create Debate</DialogTitle>
-                <DialogDescription>
-                  Schedule a new debate. A random topic will be assigned when
-                  you reveal.
-                </DialogDescription>
-              </DialogHeader>
-              <form onSubmit={handleCreate} className="space-y-4">
-                {/* ── Date ── */}
-                <div className="space-y-2">
-                  <Label>
-                    <Calendar className="h-4 w-4 inline mr-1" />
-                    Date
-                  </Label>
-                  <Select
-                    value={form.date}
-                    onValueChange={(v) => {
-                      // If switching to today, clear a time that may now be in the past
-                      const todayStr = new Date().toISOString().split("T")[0];
-                      const keepTime =
-                        v !== todayStr
-                          ? form.time
-                          : (() => {
-                              const now = new Date();
-                              const cutoff =
-                                Math.ceil(
-                                  (now.getHours() * 60 + now.getMinutes()) / 30,
-                                ) * 30;
-                              const [h, m] = form.time.split(":").map(Number);
-                              return h * 60 + m >= cutoff ? form.time : "";
-                            })();
-                      setForm({ ...form, date: v, time: keepTime });
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a date" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      {DATE_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
 
-                {/* ── Time ── */}
-                <div className="space-y-2">
-                  <Label>
-                    <Clock className="h-4 w-4 inline mr-1" />
-                    Time
-                  </Label>
-                  <Select
-                    value={form.time}
-                    onValueChange={(v) => setForm({ ...form, time: v })}
-                    disabled={!form.date}
-                  >
-                    <SelectTrigger>
-                      <SelectValue
-                        placeholder={
-                          form.date ? "Select a time" : "Select a date first"
-                        }
-                      />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      {timeOptions.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="location">
-                    <MapPin className="h-4 w-4 inline mr-1" />
-                    Location
-                  </Label>
-                  <Input
-                    id="location"
-                    placeholder="e.g. Room 101, Main Hall"
-                    value={form.location}
-                    onChange={(e) =>
-                      setForm({ ...form, location: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <DialogFooter>
-                  <Button
-                    type="submit"
-                    disabled={submitting || !form.date || !form.time}
-                  >
-                    {submitting ? "Creating..." : "Create Debate"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+          {!canCreate ? (
+            <Button disabled className="gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              No Unused Topics
+            </Button>
+          ) : (
+            <Dialog open={open} onOpenChange={setOpen}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" /> New Debate
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Create Debate</DialogTitle>
+                  <DialogDescription>
+                    Schedule a new debate. The topic will be automatically
+                    revealed at the scheduled IST time.
+                  </DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreate} className="space-y-4">
+                  {/* ── Date ── */}
+                  <div className="space-y-2">
+                    <Label>
+                      <Calendar className="h-4 w-4 inline mr-1" />
+                      Date
+                    </Label>
+                    <Select
+                      value={form.date}
+                      onValueChange={(v) => setForm({ ...form, date: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a date" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {DATE_OPTIONS.map((opt) => (
+                          <SelectItem key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* ── Time (IST) — custom hour : minute  AM/PM ── */}
+                  <div className="space-y-2">
+                    <Label>
+                      <Clock className="h-4 w-4 inline mr-1" />
+                      Time (IST)
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      {/* Hour */}
+                      <Select
+                        value={form.hour}
+                        onValueChange={(v) => setForm({ ...form, hour: v })}
+                      >
+                        <SelectTrigger className="w-[72px]">
+                          <SelectValue placeholder="HH" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-48">
+                          {HOUR_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <span className="text-lg font-bold">:</span>
+
+                      {/* Minute */}
+                      <Select
+                        value={form.minute}
+                        onValueChange={(v) => setForm({ ...form, minute: v })}
+                      >
+                        <SelectTrigger className="w-[72px]">
+                          <SelectValue placeholder="MM" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-48">
+                          {MINUTE_OPTIONS.map((opt) => (
+                            <SelectItem key={opt.value} value={opt.value}>
+                              {opt.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      {/* AM / PM */}
+                      <Select
+                        value={form.period}
+                        onValueChange={(v) => setForm({ ...form, period: v })}
+                      >
+                        <SelectTrigger className="w-[80px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="AM">AM</SelectItem>
+                          <SelectItem value="PM">PM</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {timeComplete && (
+                      <p className="text-xs text-muted-foreground">
+                        Selected:{" "}
+                        {formatTimeIST(
+                          to24h(form.hour, form.minute, form.period),
+                        )}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* ── Location ── */}
+                  <div className="space-y-2">
+                    <Label htmlFor="location">
+                      <MapPin className="h-4 w-4 inline mr-1" />
+                      Location
+                    </Label>
+                    <Input
+                      id="location"
+                      placeholder="e.g. Room 101, Main Hall"
+                      value={form.location}
+                      onChange={(e) =>
+                        setForm({ ...form, location: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+
+                  <DialogFooter>
+                    <Button
+                      type="submit"
+                      disabled={submitting || !form.date || !timeComplete}
+                    >
+                      {submitting ? "Creating..." : "Create Debate"}
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </DialogContent>
+            </Dialog>
+          )}
         </div>
       </div>
 
@@ -349,6 +401,11 @@ export default function ManageDebates() {
                       {debate.revealStatus && (
                         <Badge variant="success">Revealed</Badge>
                       )}
+                      {!debate.revealStatus && debate.status === "upcoming" && (
+                        <Badge variant="outline" className="text-xs">
+                          Auto-reveals at {formatTimeIST(debate.time)}
+                        </Badge>
+                      )}
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm text-muted-foreground">
                       <div className="flex items-center gap-2">
@@ -357,7 +414,7 @@ export default function ManageDebates() {
                       </div>
                       <div className="flex items-center gap-2">
                         <Clock className="h-4 w-4 shrink-0" />
-                        {debate.time}
+                        {formatTimeIST(debate.time)}
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4 shrink-0" />
@@ -384,16 +441,6 @@ export default function ManageDebates() {
                         <SelectItem value="cancelled">Cancelled</SelectItem>
                       </SelectContent>
                     </Select>
-                    {!debate.revealStatus && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleReveal(debate._id)}
-                        title="Randomly assign an unused topic and reveal it"
-                      >
-                        <Shuffle className="h-4 w-4 mr-1" /> Reveal
-                      </Button>
-                    )}
                     <Button
                       variant="ghost"
                       size="icon"
