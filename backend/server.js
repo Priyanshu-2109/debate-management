@@ -16,7 +16,22 @@ const app = express();
 connectDB();
 
 // Middleware
-app.use(cors({ origin: config.clientUrl, credentials: true }));
+const allowedOrigins = config.clientUrl
+  .split(",")
+  .map((o) => o.trim())
+  .filter(Boolean);
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      // Allow requests with no origin (Postman, server-to-server, etc.)
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
+    credentials: true,
+  }),
+);
 
 // Webhook route needs raw body — mount BEFORE express.json()
 app.use("/api/webhooks", webhookRoutes);

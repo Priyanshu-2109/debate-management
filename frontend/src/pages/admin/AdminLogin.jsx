@@ -37,9 +37,14 @@ export default function AdminLogin() {
         navigate("/admin/dashboard");
       }
     } catch (err) {
+      const msg = err.response?.data?.message;
       toast({
         title: "Login failed",
-        description: err.response?.data?.message || "Invalid credentials",
+        description:
+          msg ||
+          (err.request
+            ? "Cannot reach server — check network or CORS settings"
+            : "Something went wrong"),
         variant: "destructive",
       });
     } finally {
