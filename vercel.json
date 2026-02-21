@@ -5,11 +5,5 @@
   "rewrites": [
     { "source": "/api/cron", "destination": "/backend/api/cron.js" },
     { "source": "/api/:path*", "destination": "/backend/api/index.js" }
-  ],
-  "crons": [
-    {
-      "path": "/api/cron",
-      "schedule": "* * * * *"
-    }
   ]
 }
