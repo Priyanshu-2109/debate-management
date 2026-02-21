@@ -29,6 +29,9 @@ import ManageTopics from "@/pages/admin/ManageTopics";
 import ManageDebates from "@/pages/admin/ManageDebates";
 import ManageUsers from "@/pages/admin/ManageUsers";
 
+// 404
+import NotFound from "@/pages/NotFound";
+
 const clerkPubKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 function ProtectedRoute({ children }) {
@@ -107,6 +110,9 @@ export default function App() {
                 }
               />
             </Route>
+
+            {/* ── 404 catch-all ── */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
           <Toaster />
         </BrowserRouter>
