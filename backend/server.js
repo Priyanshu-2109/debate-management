@@ -18,7 +18,7 @@ connectDB();
 // Middleware
 const allowedOrigins = config.clientUrl
   .split(",")
-  .map((o) => o.trim())
+  .map((o) => o.trim().replace(/\/$/, "")) // strip trailing slash
   .filter(Boolean);
 
 app.use(
